@@ -5,6 +5,7 @@
 
 # TypeScript build cache
 *.tsbuildinfo
+/certs
 
 # Logs
 logs
@@ -39,7 +40,7 @@ lerna-debug.log*
 !.vscode/extensions.json
 
 # dotenv environment variable files
-.env
+env.dev
 .env.development.local
 .env.test.local
 .env.production.local

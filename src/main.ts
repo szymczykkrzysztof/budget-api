@@ -15,6 +15,6 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   const config = app.get(ConfigService);
   const port = config.get<string>('PORT', '3000');
-  await app.listen(port);
+  await app.listen(port ?? 3000, '0.0.0.0');
 }
 await bootstrap();

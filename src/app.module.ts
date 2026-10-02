@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { getTypeOrmConfig } from './config/typeorm.config.js';
 
 @Module({
   imports: [
@@ -16,15 +17,9 @@ import { AuthModule } from './auth/auth.module.js';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: parseInt(config.get<string>('DB_PORT', '5432'), 10),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_NAME'),
+      useFactory: () => ({
+        ...getTypeOrmConfig(),
         autoLoadEntities: true,
-        synchronize: false,
       }),
     }),
     HealthModule,

@@ -14,6 +14,8 @@ import { UsersService } from '../users/users.service.js';
 import { Public } from './decorators/public.decorator.js';
 import { LoginDto } from './dto/login.dto.js';
 import { type JwtPayload } from './jwt-payload.interface.js';
+import { AuthTokens } from './auth-tokens.interface.js';
+import { RefreshDto } from './dto/refresh.dto.js';
 
 @Controller('auth')
 export class AuthController {
@@ -30,8 +32,21 @@ export class AuthController {
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
-  login(@Body() loginDto: LoginDto): Promise<{ accessToken: string }> {
+  login(@Body() loginDto: LoginDto): Promise<AuthTokens> {
     return this.authService.login(loginDto);
+  }
+
+  @Post('refresh')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  refreshTokens(@Body() refreshDto: RefreshDto): Promise<AuthTokens> {
+    return this.authService.refresh(refreshDto.refreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  logout(@CurrentUser() user: JwtPayload): Promise<void> {
+    return this.authService.logout(user.sub);
   }
 
   @Get('me')

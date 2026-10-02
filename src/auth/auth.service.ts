@@ -11,6 +11,10 @@ import * as argon2 from 'argon2';
 import { LoginDto } from './dto/login.dto.js';
 import { JwtPayload } from './jwt-payload.interface.js';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { RefreshPayload } from './refresh-payload.interface.js';
+import { randomUUID } from 'node:crypto';
+import { AuthTokens } from './auth-tokens.interface.js';
 
 const PG_UNIQUE_VIOLATION = '23505';
 
@@ -19,6 +23,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
   ) {}
 
   async register(dto: RegisterDto): Promise<User> {
@@ -40,16 +45,70 @@ export class AuthService {
     }
   }
 
-  async login(dto: LoginDto): Promise<{ accessToken: string }> {
+  async login(dto: LoginDto): Promise<AuthTokens> {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const payload: JwtPayload = {
+
+    return this.issueTokens(user);
+  }
+
+  async refresh(refreshToken: string): Promise<AuthTokens> {
+    let payload: RefreshPayload;
+    try {
+      payload = await this.jwtService.verifyAsync<RefreshPayload>(
+        refreshToken,
+        {
+          secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        },
+      );
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    let user: User;
+    try {
+      user = await this.usersService.findById(payload.sub);
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (user.refreshTokenHash === null) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    if (!(await argon2.verify(user.refreshTokenHash, refreshToken))) {
+      await this.usersService.updateRefreshTokenHash(user.id, null);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    return await this.issueTokens(user);
+  }
+
+  async logout(userId: string): Promise<void> {
+    await this.usersService.updateRefreshTokenHash(userId, null);
+  }
+
+  private async issueTokens(user: User): Promise<AuthTokens> {
+    const accessPayload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
     };
-    return { accessToken: await this.jwtService.signAsync(payload) };
+    const refreshPayload: RefreshPayload = { sub: user.id, jti: randomUUID() };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(accessPayload),
+      this.jwtService.signAsync(refreshPayload, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        expiresIn: parseInt(
+          this.config.getOrThrow<string>('JWT_REFRESH_EXPIRES_IN'),
+          10,
+        ),
+      }),
+    ]);
+
+    const refreshTokenHash = await argon2.hash(refreshToken);
+    await this.usersService.updateRefreshTokenHash(user.id, refreshTokenHash);
+
+    return { accessToken, refreshToken };
   }
 }

@@ -25,4 +25,11 @@ export class UsersService {
     const user = this.usersRepository.create({ email, passwordHash });
     return this.usersRepository.save(user);
   }
+
+  async updateRefreshTokenHash(
+    userId: string,
+    hash: string | null,
+  ): Promise<void> {
+    await this.usersRepository.update(userId, { refreshTokenHash: hash });
+  }
 }
