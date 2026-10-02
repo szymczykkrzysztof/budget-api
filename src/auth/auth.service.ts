@@ -1,14 +1,25 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { User } from '../users/user.entity.js';
 import { QueryFailedError } from 'typeorm';
 import * as argon2 from 'argon2';
+import { LoginDto } from './dto/login.dto.js';
+import { JwtPayload } from './jwt-payload.interface.js';
+import { JwtService } from '@nestjs/jwt';
+
 const PG_UNIQUE_VIOLATION = '23505';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async register(dto: RegisterDto): Promise<User> {
     if ((await this.usersService.findByEmail(dto.email)) !== null) {
@@ -27,5 +38,18 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  async login(dto: LoginDto): Promise<{ accessToken: string }> {
+    const user = await this.usersService.findByEmail(dto.email);
+    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+    return { accessToken: await this.jwtService.signAsync(payload) };
   }
 }
