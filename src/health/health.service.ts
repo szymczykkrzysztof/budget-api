@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { HealthStatus } from './dto/heatth.dto.js';
+import { HealthStatus } from './dto/health.dto.js';
 
 @Injectable()
 export class HealthService {

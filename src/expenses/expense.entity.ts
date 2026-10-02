@@ -17,7 +17,7 @@ export class Expense {
   @Column({ type: 'numeric', precision: 10, scale: 2 })
   amount: string;
   @Column({ type: 'varchar', length: 255, nullable: true })
-  description: string;
+  description: string | null;
   @Column({ type: 'date' })
   spentAt: string;
 
